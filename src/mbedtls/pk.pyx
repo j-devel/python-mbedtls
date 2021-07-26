@@ -15,7 +15,7 @@ Diffie-Hellman exchange.
 
 """
 
-
+cimport libc.stdio as c_stdio  # @@
 from libc.stdlib cimport malloc, free
 from libc.string cimport memset
 
@@ -167,6 +167,7 @@ cdef class CipherBase:
                  name,
                  const unsigned char[:] key=None,
                  const unsigned char[:] password=None):
+        c_stdio.printf("@@ CipherBase.__init__(): ^^\n")
         _exc.check_error(_pk.mbedtls_pk_setup(
             &self._ctx,
             _pk.mbedtls_pk_info_from_type(
