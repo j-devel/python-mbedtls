@@ -174,14 +174,18 @@ cdef class CipherBase:
                 _type_from_name(name)
             )
         ))
+        c_stdio.printf("@@ [pk.pyx] CipherBase.__init__(): before checking `key`\n")
         if key is None or key.size == 0:
             return
         mbedtls_pk_free(&self._ctx)  # The context must be reset on entry.
         try:
             if password is None or password.size == 0:
+                c_stdio.printf("@@ [pk.pyx] CipherBase.__init__(): before mbedtls_pk_parse_key()\n")
+                c_stdio.printf("@@   %ld \n", len(key))
                 _exc.check_error(_pk.mbedtls_pk_parse_key(
                     &self._ctx, &key[0], key.size, NULL, 0
                 ))
+                c_stdio.printf("@@ [pk.pyx] CipherBase.__init__(): after mbedtls_pk_parse_key()\n")
             else:
                 _exc.check_error(_pk.mbedtls_pk_parse_key(
                     &self._ctx, &key[0], key.size, &password[0], password.size
@@ -237,6 +241,7 @@ cdef class CipherBase:
                 password-protected private keys.
 
         """
+        c_stdio.printf("@@ [pk.pyx] actually not reaching here\n")
         raise NotImplementedError
 
     @classmethod
@@ -336,6 +341,29 @@ cdef class CipherBase:
         return _pk.mbedtls_pk_verify(
             &self._ctx, md_alg._type,
             &hash_[0], hash_.size,
+            &signature[0], signature.size) == 0
+    #-------- @@
+    def verify_foo(self,
+               const unsigned char[:] message not None,
+               const unsigned char[:] signature not None,
+               const unsigned char[:] hash_foo not None,  # @@
+               ECPoint rs0_foo,  # @@
+               digestmod=None):
+        if signature.size == 0:
+            return False
+        if digestmod is None:
+            digestmod = 'sha256'
+        md_alg = _get_md_alg(digestmod)(message)
+        # cdef const unsigned char[:] hash_ = md_alg.digest()
+
+        # TODO !!!! pass `r` and `s` to `mbedtls_pk_verify()`
+        # cdef mbedtls_ecp_keypair* ecp = _pk.mbedtls_pk_ec(self._ctx)
+        # _exc.check_error(_pk.mbedtls_ecp_copy(&ecp.Q!!!!, &rs0_foo._ctx))
+
+        return _pk.mbedtls_pk_verify(
+            &self._ctx, md_alg._type,
+            # &hash_[0], hash_.size,
+            &hash_foo[0], hash_foo.size,  # @@ !!!!
             &signature[0], signature.size) == 0
 
     def encrypt(self, const unsigned char[:] message not None):
@@ -680,6 +708,11 @@ cdef class ECC(CipherBase):
 
         """
         return cls(None, key)
+
+    # @@
+    def set_point(self, ECPoint ecp_src):
+        cdef mbedtls_ecp_keypair* ecp = _pk.mbedtls_pk_ec(self._ctx)
+        _exc.check_error(_pk.mbedtls_ecp_copy(&ecp.Q, &ecp_src._ctx))
 
     def _has_private(self):
         """Return `True` if the key contains a valid private half."""
