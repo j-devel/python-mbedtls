@@ -347,6 +347,12 @@ cdef extern from "mbedtls/pk.h" nogil:
         mbedtls_pk_context *ctx, _md.mbedtls_md_type_t md_alg,
         const unsigned char *hash, size_t hash_len,
         const unsigned char *sig, size_t sig_len)
+    # @@
+    int mbedtls_pk_verify_voucher(
+        mbedtls_pk_context *ctx, _md.mbedtls_md_type_t md_alg,
+        const _mpi.mbedtls_mpi *r, const _mpi.mbedtls_mpi *s,
+        const unsigned char *hash, size_t hash_len,
+        const unsigned char *sig, size_t sig_len)
     # int mbedtls_pk_verify_ext(
     #     mbedtls_pk_type_t type, const void *options,
     #     mbedtls_pk_context *ctx, _md.mbedtls_md_type_t md_alg,

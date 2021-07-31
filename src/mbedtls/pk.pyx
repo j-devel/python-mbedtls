@@ -343,11 +343,11 @@ cdef class CipherBase:
             &hash_[0], hash_.size,
             &signature[0], signature.size) == 0
     #-------- @@
-    def verify_foo(self,
+    def verify_voucher(self,
                const unsigned char[:] message not None,
                const unsigned char[:] signature not None,
-               const unsigned char[:] hash_foo not None,  # @@
-               ECPoint rs0_foo,  # @@
+               const unsigned char[:] hash_voucher not None,  # @@
+               r, s,  # @@
                digestmod=None):
         if signature.size == 0:
             return False
@@ -356,14 +356,18 @@ cdef class CipherBase:
         md_alg = _get_md_alg(digestmod)(message)
         # cdef const unsigned char[:] hash_ = md_alg.digest()
 
-        # TODO !!!! pass `r` and `s` to `mbedtls_pk_verify()`
-        # cdef mbedtls_ecp_keypair* ecp = _pk.mbedtls_pk_ec(self._ctx)
-        # _exc.check_error(_pk.mbedtls_ecp_copy(&ecp.Q!!!!, &rs0_foo._ctx))
+        #==== ref.
+        # cdef _mpi.MPI c_priv = _mpi.MPI(priv)
+        # _mpi.mbedtls_mpi_copy(&self._ctx.d, &c_priv._ctx)
+        #==== @@
+        cdef _mpi.MPI c_r = _mpi.MPI(r)
+        cdef _mpi.MPI c_s = _mpi.MPI(s)
 
-        return _pk.mbedtls_pk_verify(
+        return _pk.mbedtls_pk_verify_voucher(
             &self._ctx, md_alg._type,
+            &c_r._ctx, &c_s._ctx, # @@
             # &hash_[0], hash_.size,
-            &hash_foo[0], hash_foo.size,  # @@ !!!!
+            &hash_voucher[0], hash_voucher.size,  # @@
             &signature[0], signature.size) == 0
 
     def encrypt(self, const unsigned char[:] message not None):
@@ -709,7 +713,7 @@ cdef class ECC(CipherBase):
         """
         return cls(None, key)
 
-    # @@
+    # @@ debug-inject public key as point
     def set_point(self, ECPoint ecp_src):
         cdef mbedtls_ecp_keypair* ecp = _pk.mbedtls_pk_ec(self._ctx)
         _exc.check_error(_pk.mbedtls_ecp_copy(&ecp.Q, &ecp_src._ctx))
