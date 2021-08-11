@@ -3,7 +3,7 @@
 
 """Structure and functions for parsing and writing X.509 certificates."""
 
-
+cimport libc.stdio as c_stdio  # @@
 from libc.stdlib cimport malloc, free
 
 cimport mbedtls.x509 as x509
@@ -317,6 +317,34 @@ cdef class CRT(Certificate):
         finally:
             free(c_buf)
 
+    def dump_pubkey_der(self):  # @@ mod of @property `subject_public_key`
+        cipher_type = _pk.CipherType(_pk.mbedtls_pk_get_type(&self._ctx.pk))
+        cipher = {
+            _pk.CipherType.RSA: _pk.RSA,
+            _pk.CipherType.ECKEY: _pk.ECC,
+        }.get(cipher_type, None)
+        if cipher is None:
+            raise NotImplementedError("unsupported cipher %r" % cipher_type)
+
+        if cipher == _pk.ECC:
+            c_stdio.printf("@@ [x509.pyx] dump_pubkey_der: `cipher` is ECC\n")
+        else:
+            c_stdio.printf("@@ [x509.pyx] dump_pubkey_der: `cipher` is RSA\n")
+
+        cdef size_t osize = _pk.PUB_DER_MAX_BYTES
+        cdef unsigned char *c_buf = <unsigned char *>malloc(
+            osize * sizeof(unsigned char))
+        if not c_buf:
+            raise MemoryError()
+        try:
+            ret = _exc.check_error(_pk.mbedtls_pk_write_pubkey_der(
+                &self._ctx.pk, &c_buf[0], osize))
+            # return cipher.from_DER(c_buf[osize - ret:osize])
+            #==== @@
+            return [c_buf[osize - ret + i] for i in range(ret)]
+        finally:
+            free(c_buf)
+
     # RFC 5280, Section 4.1.2.8 Unique Identifiers
     # RFC 5280, Section 4.1.2.9 Extensions
     # RFC 5280, Section 4.2 Certificate Extensions
@@ -401,16 +429,19 @@ cdef class CRT(Certificate):
 
     @classmethod
     def from_DER(cls, const unsigned char[:] buffer not None):
+        c_stdio.printf("@@ [x509.pyx] CRT.from_DER(): ^^\n")
         if buffer.size == 0:
             raise ValueError("Cannot create %s from an empty buffer"
                              % cls.__name__)
         cdef CRT self = cls(None)
+        c_stdio.printf("@@ [x509.pyx] CRT.from_DER(): calling mbedtls_x509_crt_parse_der()\n")
         _exc.check_error(x509.mbedtls_x509_crt_parse_der(
             &self._ctx, &buffer[0], buffer.size))
         return self
 
     @classmethod
     def from_PEM(cls, pem):
+        c_stdio.printf("@@ [x509.pyx] CRT.from_PEM(): ^^\n")
         return cls.from_DER(PEM_to_DER(pem))
 
     def to_DER(self):
